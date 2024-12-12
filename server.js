@@ -25,62 +25,27 @@ const generateXVerify = (payloadString) => {
 };
 
 // Payment initiation endpoint
-app.post("/initiate-payment", async (req, res) => {
+const initiatePayment = async (paymentData) => {
   try {
-    const { name, email, phone } = req.body;
-
-    console.log("Initiating payment...");
-    console.log("Request body:", req.body);
-
-    // Create payment payload
-    const payload = {
-      merchantId: process.env.MERCHANT_ID,
-      transactionId: `TXN_${Date.now()}`,
-      amount: 15000, // Amount in paise
-      currency: "INR",
-      redirectUrl: process.env.REDIRECT_URL,
-      callbackUrl: process.env.REDIRECT_URL,
-    };
-
-    console.log("Payment payload:", payload);
-
-    // Generate X-VERIFY
-    const payloadString = JSON.stringify(payload);
-    const xVerify = generateXVerify(payloadString);
-
-    console.log("Generated X-VERIFY:", xVerify);
-
-    // Make request to PhonePe API
-    const response = await fetch(process.env.PROD_URL, {
-      method: "POST",
+    const response = await fetch(`/api/initiate-payment`, {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
-        "X-VERIFY": xVerify,
+        'Content-Type': 'application/json',
       },
-      body: payloadString,
+      body: JSON.stringify(paymentData),
     });
 
-    const responseText = await response.text();
-    console.log("PhonePe Raw Response:", responseText);
-
+    const result = await response.json();
     if (response.ok) {
-      const result = JSON.parse(responseText);
-      if (result.success) {
-        console.log("Redirecting to Payment URL:", result.data.paymentUrl);
-        res.json({ paymentUrl: result.data.paymentUrl });
-      } else {
-        console.error("PhonePe API error (not ok):", result.message || "Unknown error");
-        res.status(400).json({ error: result.message || "Payment initiation failed" });
-      }
+      window.location.href = result.paymentUrl;
     } else {
-      console.error("PhonePe API error:", responseText);
-      res.status(response.status).json({ error: "PhonePe API issue." });
+      console.error('Error initiating payment:', result.error);
     }
   } catch (error) {
-    console.error("Payment initiation error:", error);
-    res.status(500).json({ error: "Internal server error. Please try again." });
+    console.error('API call failed:', error);
   }
-});
+};
+
 
 // Start the server
 app.listen(PORT, () => {
